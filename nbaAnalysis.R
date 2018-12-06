@@ -1,5 +1,10 @@
-# # uncomment below to combine data set from csv files produced by the python scraper
-# # create df of all csvs in ./data/ directory
+##
+##
+########## START HERE IF NEED TO GENERATE MULTIPLE SEASON CSV ############
+##
+##
+# uncomment below to combine data set from csv files produced by the python scraper
+# create df of all csvs in ./data/ directory
 # filenames <- list.files(path="./data/", pattern="*.csv")
 # filenames <- paste('./data/', filenames, sep='')
 # df <- do.call(rbind, lapply(filenames, function(x) read.csv(x, stringsAsFactors = F)))
@@ -11,9 +16,14 @@
 # df$team_name[df$team_name == "New Orleans/Oklahoma City Hornets"] <- "New Orleans Pelicans"
 # df$team_name[df$team_name == "New Orleans Hornets"] <- "New Orleans Pelicans"
 # df$team_name[df$team_name == "Vancouver Grizzlies"] <- "Memphis Grizzlies"
-# 
+# # 
 # write.csv(df, file="./data/teamStats1998-2018.csv")
 
+##
+##
+########### START HERE IF ALREADY HAVE MULTIPLE SEASON CSV ###########
+##
+##
 # comment above and uncomment below if we already generated joint csv
 df <- read.csv("./data/teamStats1998-2018.csv", stringsAsFactors = F)
 df$X <-NULL #do not want this column (index)
@@ -21,6 +31,10 @@ df$X <-NULL #do not want this column (index)
 #### First we will atttempt cluster specific (random effects) ####
 library(lme4)
 df$team_name <- as.factor(df$team_name)
+
+colNames<- colnames(df)
+print("Possible covariates:")
+print(colNames)
 
 # random intercept (use cluster variable of team_name)
 mod.randInt <- glmer(plyf~win_loss_pct+movA+nrtgA+(1|team_name), family = binomial, data=df)
@@ -66,17 +80,25 @@ pchisq(baseDev-testDev.nrtg, testDf.nrtg-baseDf, lower=F)
 
 
 
-## First we will attempt a Population average model
+## Next, we will attempt a Population average model
 ## (performing a GEE analysis of data)
 library(gee)
 
 # we must take the Spurs out of the dataframe since they have made the playoffs every single year since 1998
-# thus, the model cannot be fit properly since there is no knowledge about the Spurs not making the playoffs
-df$team_name <- as.character(df$team_name)
-df.NoSpurs <- subset(df, team_name!='San Antonio Spurs')
-
-df.clusterOrder <- df.NoSpurs[order(df.NoSpurs$team_name),]
+# thus, the model cannot be fit properly since there is no knowledge about the Spurs not making the playoff
+df.clusterOrder <- df[order(df$team_name),]
 df.clusterOrder$team_name <- as.factor(df.clusterOrder$team_name)
-mod.gee <- gee(plyf~win_loss_pct, family="binomial", id=team_name, corstr="exchangeable", data=df.clusterOrder)
 
+###### gee() DOES NOT WORK ##########
 
+#mod.gee <- gee(plyf~win_loss_pct+movA+nrtgA, family="binomial", id=team_name, corstr="exchangeable", data=df.clusterOrder)
+
+####### NOTE #######
+## the above gee() command gives the following error:
+# Error in gee(plyf ~ win_loss_pct + movA + nrtgA, family = "binomial",  : 
+#   Cgee: error: logistic model for probability has fitted value very close to 1.
+# estimates diverging; iteration terminated.
+
+# fit gneral logistic model and display histogram of fitted valus
+df.glm <- glm(formula = plyf ~ win_loss_pct + movA + nrtgA, family = binomial, data = df.clusterOrder)
+hist(df.glm$fitted.values)
