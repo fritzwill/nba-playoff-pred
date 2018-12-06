@@ -16,7 +16,7 @@ if __name__ == "__main__":
     startYear = 1998 
     endYear = 2017
     years = [yr for yr in range(startYear,endYear+1)]
-    urls = ["https://www.basketball-reference.com/playoffs/NBA_{}.html".format(yr) for yr in years]
+    urls = ["https://www.basketball-reference.com/leagues/NBA_{}_ratings.html".format(yr) for yr in years]
     dataDir = 'data/'
 
     for i, url in enumerate(urls):
@@ -24,13 +24,13 @@ if __name__ == "__main__":
         soup = BeautifulSoup(page, 'html.parser')
 
         # find the rows of data we want
-        statsPerGame = soup.find("div", {"id": "all_team-stats-per_game"})
+        statsPerGame = soup.find("div", {"id": "all_ratings"})
         statsPerGameTbl = statsPerGame.find('tbody')
         rows = statsPerGameTbl.find_all('tr')
 
         # generate csv for specific year
         filename = dataDir + "teamStats{}.csv".format(startYear+i)
-        colNames = ['team_name', 'g','mp', 'fg','fga','fg_pct','fg3', 'fg3a','fg3_pct','fg2','fg2a','fg2_pct','ft','fta','ft_pct','orb','drb','trb','ast','stl','blk','tov','pf','pts']
+        colNames = ['team_name', 'conf','div', 'win','loss','win_loss_pct','mov', 'ortg','drtg','ntrg','movA','ortgA','drtgA','nrtgA']
         writeCSV(filename, rows, colNames)
 
 
