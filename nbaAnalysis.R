@@ -18,12 +18,61 @@
 df <- read.csv("./data/teamStats1998-2018.csv", stringsAsFactors = F)
 df$X <-NULL #do not want this column (index)
 
+#### First we will atttempt cluster specific (random effects) ####
+library(lme4)
+df$team_name <- as.factor(df$team_name)
+
+# random intercept (use cluster variable of team_name)
+mod.randInt <- glmer(plyf~win_loss_pct+movA+nrtgA+(1|team_name), family = binomial, data=df)
+
+# random intercept and trend
+mod.randIntTrend.wl <- glmer(plyf~win_loss_pct+movA+nrtgA+(1+win_loss_pct|team_name), family = binomial, data=df)
+mod.randIntTrend.mov <- glmer(plyf~win_loss_pct+movA+nrtgA+(1+movA|team_name), family = binomial, data=df)
+mod.randIntTrend.nrtg <- glmer(plyf~win_loss_pct+movA+nrtgA+(1+nrtgA|team_name), family = binomial, data=df)
+
+# get std. deviation values 
+VarCorr(mod.randIntTrend.wl)
+VarCorr(mod.randIntTrend.mov)
+VarCorr(mod.randIntTrend.nrtg)
+
+# clacl ICC (intraclass correlation coefficient)
+icc.wl <- (2.647^2/(2.647^2+(pi^2/3)))
+icc.mov <- (0.10027^2/(0.10027^2+(pi^2/3)))
+icc.nrtg <-(0.073607^2/(0.073607^2+(pi^2/3)))
+
+# get predicted rand. intercepts
+rand_ints.wl <- unlist(ranef(mod.randIntTrend.wl)$team_name)
+rand_ints.mov <- unlist(ranef(mod.randIntTrend.mov)$team_name)
+rand_ints.nrtg <- unlist(ranef(mod.randIntTrend.nrtg)$team_name)
+
+## conduct Liklihood Ratio Test for each model
+# calc deviance
+baseDev <- getME(mod.randInt, "devcomp")$cmp[["dev"]]
+testDev.wl <- getME(mod.randIntTrend.wl, "devcomp")$cmp[["dev"]]
+testDev.mov <- getME(mod.randIntTrend.mov, "devcomp")$cmp[["dev"]]
+testDev.nrtg <- getME(mod.randIntTrend.nrtg, "devcomp")$cmp[["dev"]]
+# calc degrees of freedom
+baseDf <- attr(logLik(mod.randInt), "df")
+testDf.wl <- attr(logLik(mod.randIntTrend.wl), "df")
+testDf.mov <- attr(logLik(mod.randIntTrend.mov), "df")
+testDf.nrtg <- attr(logLik(mod.randIntTrend.nrtg), "df")
+# calc p-vals
+print("W/L%:")
+pchisq(baseDev-testDev.wl, testDf.wl-baseDf, lower=F)
+print("mov:")
+pchisq(baseDev-testDev.mov, testDf.mov-baseDf, lower=F)
+print("nrtg:")
+pchisq(baseDev-testDev.nrtg, testDf.nrtg-baseDf, lower=F)
+
+
+
 ## First we will attempt a Population average model
 ## (performing a GEE analysis of data)
 library(gee)
 
 # we must take the Spurs out of the dataframe since they have made the playoffs every single year since 1998
 # thus, the model cannot be fit properly since there is no knowledge about the Spurs not making the playoffs
+df$team_name <- as.character(df$team_name)
 df.NoSpurs <- subset(df, team_name!='San Antonio Spurs')
 
 df.clusterOrder <- df.NoSpurs[order(df.NoSpurs$team_name),]
@@ -31,4 +80,3 @@ df.clusterOrder$team_name <- as.factor(df.clusterOrder$team_name)
 mod.gee <- gee(plyf~win_loss_pct, family="binomial", id=team_name, corstr="exchangeable", data=df.clusterOrder)
 
 
-## Next we will atttempt cluster specific (random effects)
